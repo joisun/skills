@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{REPORT_TITLE}}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #1f2329;
+      background: #f5f6f8;
+      line-height: 1.65;
+    }
+    main {
+      width: min(1080px, calc(100% - 32px));
+      margin: 24px auto 64px;
+    }
+    header,
+    section {
+      margin-bottom: 20px;
+      padding: 24px;
+      background: #fff;
+      border: 1px solid #e5e6eb;
+      border-radius: 10px;
+    }
+    h1, h2, h3, h4 { line-height: 1.35; }
+    h1 { margin: 0 0 12px; font-size: 28px; }
+    h2 { margin: 0 0 18px; font-size: 22px; }
+    h3 { margin: 0 0 10px; font-size: 18px; }
+    .issue + .issue {
+      margin-top: 28px;
+      padding-top: 28px;
+      border-top: 1px solid #e5e6eb;
+    }
+    .badges { display: flex; gap: 8px; margin-bottom: 14px; }
+    .badges span {
+      padding: 2px 9px;
+      color: #245bdb;
+      background: #eef3ff;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+    dl {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 4px 12px;
+      margin: 0;
+    }
+    dt { font-weight: 600; }
+    dd { margin: 0; }
+    code { word-break: break-all; }
+    figure { margin: 18px 0 0; }
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid #dcdfe6;
+      border-radius: 6px;
+    }
+    figcaption {
+      margin-top: 7px;
+      color: #646a73;
+      font-size: 14px;
+    }
+    @media (max-width: 640px) {
+      main { width: min(100% - 20px, 1080px); margin-top: 10px; }
+      header, section { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!--
+    This fallback template is intentionally small.
+    {{SUMMARY_HTML}}, {{ISSUE_SECTIONS_HTML}}, and {{LIMITATIONS_HTML}} are
+    trusted wrapper fragments produced by the aggregator. Escape every
+    application/user scalar before insertion. Evidence must be rendered as an
+    img element; use a data URI for a portable standalone report.
+  -->
+  <main>
+    <header>
+      <h1>{{REPORT_TITLE}}</h1>
+      {{SUMMARY_HTML}}
+    </header>
+    {{ISSUE_SECTIONS_HTML}}
+    <section>
+      <h2>覆盖与限制</h2>
+      {{LIMITATIONS_HTML}}
+    </section>
+  </main>
+</body>
+</html>
