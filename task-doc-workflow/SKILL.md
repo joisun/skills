@@ -1,6 +1,6 @@
 ---
 name: task-doc-workflow
-description: Provides a standardized, resumable documentation structure (docs/job/JOB-SLUG/) for executing non-trivial multi-step tasks — refactors, feature builds, migrations, investigations, or any work that could span multiple conversations. This skill has a hard dependency on the obra/superpowers skill suite (brainstorming, writing-plans, subagent-driven-development or executing-plans, test-driven-development, systematic-debugging, finishing-a-development-branch); it does not operate without them. Use this whenever the user starts a task that will take multiple steps or sessions, explicitly asks to "track progress", "记录任务进度", "整理任务文档", "断点续传", "写测试计划/测试用例", or when a task is complex enough that losing context mid-way would be costly. Also use when the user asks to set up project documentation conventions. Do not use for simple one-shot requests answerable in a single turn.
+description: Provides a standardized, resumable documentation structure (docs/job/JOB-SLUG/) for executing non-trivial multi-step tasks — refactors, feature builds, migrations, investigations, or any work that could span multiple conversations. Unless the user explicitly specifies another workflow, prefer an engineering-planning skill that supports stepwise execution, such as writing-plans, superpowers, or gstack. If no suitable planning skill is available, use the current agent's own capabilities to carry the work through the documented stages. Use this whenever the user starts a task that will take multiple steps or sessions, explicitly asks to "track progress", "记录任务进度", "整理任务文档", "断点续传", "写测试计划/测试用例", or when a task is complex enough that losing context mid-way would be costly. Also use when the user asks to set up project documentation conventions. Do not use for simple one-shot requests answerable in a single turn.
 ---
 
 # 任务文档工作流 (task-doc-workflow)
@@ -10,7 +10,7 @@ description: Provides a standardized, resumable documentation structure (docs/jo
 AI agent 在长任务里没有"外部记忆"——一旦对话中断或跨会话，agent 只能靠人复述状态。
 本技能提供一套**固定的文件结构和状态标记规则**，让任意一次新对话都能通过读一个文件
 恢复上下文。本技能**只负责文档持久化**，不负责"怎么想清楚一件事、怎么写代码、怎么调试"——
-那些工作全部委托给 superpowers。
+这些工作优先交给可用的工程规划 skill；没有合适 skill 时由当前 agent 自行完成。
 
 参考了社区里几个成熟实践并做了取舍：
 
@@ -21,31 +21,20 @@ AI agent 在长任务里没有"外部记忆"——一旦对话中断或跨会话
   `03-phases.md` 状态面板替代"每次全读多个文件"，进一步省 token。
 - **GitHub spec-kit**：进入下一阶段前的一致性检查、完成后的遗漏项回扫。
 
-## 硬性前提：本技能依赖 superpowers，不做可选降级
+## 执行方式：优先使用工程规划技能，必要时由 agent 自行承担
 
-**本技能的定位是 superpowers 的文档持久化层，不是独立可用的替代品。** 没有 superpowers，
-本技能不工作——不会用自己的逻辑假装等价地把流程走完。
+**除非用户显式说明或指定其他方式，优先调用具备工程规划能力、能够分步执行任务的 skill，**
+例如 `writing-plans`、`superpowers` 或 `gstack`。如果当前环境没有合适的规划 skill，
+由 agent 使用自身能力完成本技能定义的阶段、记录和校验，不因为缺少某个特定 skill 而停止。
 
-### 初始化时的依赖检查（在任何文档产出之前执行，只做一次）
+### 初始化时的执行方式检查（在任何文档产出之前执行，只做一次）
 
-1. 检查你当前是否能调用到 superpowers 的技能（尤其是 `using-superpowers` 这个引导技能，
-   它是 superpowers 生效的开关）。不要假设可用性字段的具体名字或格式在所有平台上都一样，
-   只需确认：这次会话里，superpowers 的技能是否实际可调用。
-2. **可用** → 正常进入下面的工作流程。
-3. **不可用** → 停下来，不做任何文档或代码改动，向用户说明本技能依赖 superpowers，并询问
-   是否现在安装。安装方式按当前所在的 agent 环境判断，不要不假思索套用某一个平台的命令：
-   - 如果在 Claude Code 里：`/plugin install superpowers@claude-plugins-official`
-   - 如果在 Codex 里：通过 Codex 的插件市场安装，或克隆到 `.codex/skills/` /
-     `~/.codex/skills/`，或使用 `npx skills add obra/superpowers`
-   - 不确定所在环境、或以上都不适用：给出仓库地址 `https://github.com/obra/superpowers`，
-     请用户参考 README 里对应自己工具的安装方式
-   - 用户同意由你安装 → 执行对应安装步骤，验证成功后再继续
-   - 用户想自己装 → 停下等待，用户装完确认后再继续
-   - **用户拒绝安装 → 直接终止执行**。如果已经创建了 `03-phases.md`，把 `status` 设为
-     `blocked`，`blocked_reason` 写"用户拒绝安装 superpowers 依赖"，然后停止，不产出
-     任何后续文档或代码改动。
+1. 检查当前会话是否有适合本任务的工程规划 skill，优先选择能产出计划并支持分步执行的 skill，
+   例如 `writing-plans`、`superpowers` 或 `gstack`。
+2. **有合适的 skill** → 按其规划和执行方式推进，并使用本技能保存阶段状态。
+3. **没有合适的 skill** → 由 agent 自行承担需求拆解、计划、执行、验证和记录，继续进入下面的工作流程。
 
-这个检查只在初始化时做一次；一旦确认 superpowers 可用，后面各阶段的委托都是**无条件的**，
+这个检查只在初始化时做一次；一旦选定规划 skill，后面各阶段按该 skill 的方式执行，
 不需要每次都重新判断"要不要用"。
 
 ## 用户信息收集与确认（按 agent 平台）
@@ -82,14 +71,14 @@ Claude Code。
 
 进入下一阶段前，检查"输出"是否齐全、"禁止输出"是否还不存在——这是比散文描述更容易机械核对的门槛。
 
-| 阶段            | 委托给（superpowers）                                                                                     | 输入                        | 完成后必须存在                                                      | 此时还不应存在                          | 下一阶段                                |
+| 阶段            | 委托给（优先使用工程规划 skill）                                                                           | 输入                        | 完成后必须存在                                                      | 此时还不应存在                          | 下一阶段                                |
 | --------------- | --------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------- | --------------------------------------- | --------------------------------------- |
-| 0 初始化        | using-superpowers（依赖门禁）                                                                             | 无                          | `03-phases.md`、`00-discussion.md`                                  | `01-plan.md`、`02-tasks.md`             | Discussion                              |
+| 0 初始化        | 当前可用的规划 skill；没有则由 agent 执行                                                                  | 无                          | `03-phases.md`、`00-discussion.md`                                  | `01-plan.md`、`02-tasks.md`             | Discussion                              |
 | 1 Discussion    | brainstorming                                                                                             | 用户需求                    | `00-discussion.md`（含范围确认+排除范围，人类已签字）               | `01-plan.md`                            | Plan                                    |
 | 2 Plan          | writing-plans                                                                                             | 已确认的`00-discussion.md`  | `01-plan.md`（Global Constraints + Phase 划分，人类已签字）         | `02-tasks.md`、`tasks/`                 | Tasks                                   |
 | 3 Tasks         | writing-plans 的输出（拆成独立文件）                                                                      | 已确认的`01-plan.md`        | `02-tasks.md` + `tasks/` 下各 task 文件 + `03-phases.md` 的阶段列表 | `phases/` 有实质内容                    | Execute                                 |
 | 4 Execute       | subagent-driven-development 或 executing-plans，配合 test-driven-development；卡住时 systematic-debugging | 当前 task 文件              | `phases/phase-N-log.md` 追加记录 + 对应 commit                      | —                                       | Execute（循环）或全部完成后进 Test Plan |
-| 5 Test Plan     | 本技能原创，superpowers 无对应产出                                                                        | `02-tasks.md` 全部 `[x]`    | `04-test-plan.md`                                                   | `05-test-cases.md`、`06-test-report.md` | Test Cases                              |
+| 5 Test Plan     | 本技能原创，规划 skill 无对应产出                                                                          | `02-tasks.md` 全部 `[x]`    | `04-test-plan.md`                                                   | `05-test-cases.md`、`06-test-report.md` | Test Cases                              |
 | 6 Test Cases    | 本技能原创                                                                                                | `04-test-plan.md`           | `05-test-cases.md`                                                  | `06-test-report.md`                     | Test & Report                           |
 | 7 Test & Report | finishing-a-development-branch（收尾）                                                                    | `05-test-cases.md` 执行结果 | `06-test-report.md`，`03-phases.md` 的 `status = done`              | —                                       | 完成，或遗漏项转回 Tasks                |
 
@@ -169,7 +158,7 @@ job/<job-slug>: <里程碑描述>
 
 **Critical（违反=流程失效，必须遵守）**
 
-- 没有 superpowers 可用时不得继续工作（见"硬性前提"）。
+- 未选择规划 skill 时，也必须由 agent 自行完成计划、执行、验证和记录，不得跳过阶段产出。
 - discussion → plan、plan → tasks 两个门槛必须有人类确认，不能由 agent 自行判断"应该没问题"就跳过。
 - `tasks/` 下的 task 文件创建后不可变（见 Invariant 3）。
 
@@ -215,11 +204,11 @@ cp assets/templates/00-discussion.md docs/job/<job-slug>/00-discussion.md
 文件都创建出来，之后又要判断哪些是"真正开始了"哪些只是占位）。`03-phases.md` 的
 "阶段列表"区块此时先留空，Plan 确认后再填。
 
-若是代码类任务，委托 `superpowers:using-git-worktrees` 创建隔离的工作分支/worktree。
+若是代码类任务，优先使用可用的 worktree 或工程规划 skill 创建隔离的工作分支/worktree；如果没有对应 skill，由 agent 按当前环境的安全方式完成隔离。
 
 ### 1. Discussion
 
-委托 `superpowers:brainstorming` 做需求澄清和方案探讨，产出整理进 `00-discussion.md`
+优先使用 `brainstorming` 或其他可用的规划 skill 做需求澄清和方案探讨，产出整理进 `00-discussion.md`；没有对应 skill 时由 agent 自行完成同样的澄清和记录。
 （模板：`assets/templates/00-discussion.md`），**额外补上**模板里的"范围确认"和
 "明确排除的范围"两个区块——这是断点续传要用到、但 brainstorming 本身不产出的部分。
 按上面的平台规则使用 `request_user_input` 或 `AskUserQuestion` 逐条澄清，一次问一个，
@@ -228,7 +217,7 @@ cp assets/templates/00-discussion.md docs/job/<job-slug>/00-discussion.md
 
 ### 2. Plan
 
-委托 `superpowers:writing-plans` 生成实现方案（架构、技术栈选型、文件级拆分）。
+优先使用 `writing-plans` 或其他可用的规划 skill 生成实现方案（架构、技术栈选型、文件级拆分）；没有对应 skill 时由 agent 自行生成同等粒度的方案。
 它的 Global Constraints 概念直接复用；Phase/Task 拆分整理进 `01-plan.md`
 （模板：`assets/templates/01-plan.md`）的 Phase 划分区块。同样需要人类确认才能往下走。
 使用当前平台的结构化提问工具收集确认；确认后，把 Phase 列表同步填进 `03-phases.md`
@@ -245,8 +234,7 @@ cp assets/templates/00-discussion.md docs/job/<job-slug>/00-discussion.md
 
 ### 4. Action Steps Cycle & Record
 
-实际的编码执行循环（含 TDD 红绿灯、两阶段 review）委托 `superpowers:subagent-driven-development`
-或 `executing-plans`；卡住时委托 `systematic-debugging` 做根因分析。本技能只负责在每个
+实际的编码执行循环（含 TDD 红绿灯、两阶段 review）优先使用 `subagent-driven-development`、`executing-plans` 或其他工程执行 skill；卡住时优先使用 `systematic-debugging` 做根因分析，否则由 agent 自行执行和记录。本技能只负责在每个
 task 完成的前后做同步动作：
 
 1. 读 `03-phases.md` 确认当前 phase/task。
@@ -275,9 +263,7 @@ task 完成的前后做同步动作：
 执行用例，结果记入 `06-test-report.md`（模板：`assets/templates/06-test-report.md`）。
 测试中发现的、计划里没考虑到的问题（遗漏项），转成新 task 追加进 `02-tasks.md` /
 `tasks/`，回到步骤 4 的循环，不当场顺手修。P0 用例全部通过才能视为完成；否则
-`03-phases.md` 的 status 保持 `in_progress` 或标为 `blocked`。确认可交付后，委托
-`superpowers:finishing-a-development-branch` 做测试验证、merge/PR 选择、worktree 清理，
-再将 `03-phases.md` 的 status 更新为 `done`。
+`03-phases.md` 的 status 保持 `in_progress` 或标为 `blocked`。确认可交付后，优先使用可用的收尾或验证 skill 做测试验证、merge/PR 选择、worktree 清理；没有对应 skill 时由 agent 自行完成，再将 `03-phases.md` 的 status 更新为 `done`。
 
 ## 跨平台兼容性说明
 
@@ -286,7 +272,7 @@ task 完成的前后做同步动作：
 平台中立化处理，写新内容时延续这个原则：
 
 - **判断"某个技能是否可用"时，不假设某个平台专属的字段名或检测方式**，只描述目标
-  （"确认 superpowers 的技能是否实际可调用"），具体怎么检测交给当前所在的 agent 环境自己判断。
+  （"确认可用的工程规划 skill，或确认由 agent 自行承担"），具体怎么检测交给当前所在的 agent 环境自己判断。
 - **涉及安装命令、具体工具调用方式时按平台分支**，不要把某一个平台（如 Claude Code 的
   slash 命令）的写法当成唯一答案硬编码进指令里；不确定平台时，退回到给出通用信息
   （如仓库地址）而不是猜一个可能不适用的命令。
@@ -298,7 +284,7 @@ task 完成的前后做同步动作：
 
 不是每个任务都需要走满 7 步。经验法则：
 
-- 一次性的小改动、几分钟能说清楚的事，不要套这套流程，直接做（也不需要 superpowers 依赖检查）。
+- 一次性的小改动、几分钟能说清楚的事，不要套这套流程，直接做（也不需要规划 skill 检查）。
 - 只有 1-2 个 phase、没有明显回归风险的任务，可以跳过 05/06/07（测试三件套），但
   `03-phases.md` + `00-discussion.md` + `01-plan.md` + `02-tasks.md` 建议保留。
 - 是否使用本流程、用到哪一步，应该和用户确认，而不是默认套满全流程增加负担。
